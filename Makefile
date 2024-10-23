@@ -6,6 +6,11 @@ K=kernel
 U=xv6-user
 T=target
 
+all: kernel-qemu
+
+kernel-qemu: build
+	cp $T/kernel kernel-qemu
+
 OBJS =
 ifeq ($(platform), k210)
 OBJS += $K/entry_k210.o
