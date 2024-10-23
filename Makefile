@@ -126,7 +126,7 @@ k210 = $T/k210.bin
 k210-serialport := /dev/ttyUSB0
 
 ifndef CPUS
-CPUS := 2
+CPUS := 1
 endif
 
 QEMUOPTS = -machine virt -kernel $T/kernel -m 32M -nographic
@@ -224,12 +224,13 @@ fs: $(UPROGS)
 		dd if=/dev/zero of=fs.img bs=512k count=512; \
 		mkfs.vfat -F 32 fs.img; fi
 	@mount fs.img $(dst)
-	@if [ ! -d "$(dst)/bin" ]; then mkdir $(dst)/bin; fi
+	@if [ ! -d "$(dst)/bin" ]; then mkdir -p $(dst)/bin; fi
+	@if [ ! -d "$(dst)/mnt" ]; then mkdir -p $(dst)/mnt; fi
 	@cp README $(dst)/README
-	@cp -r riscv64 $(dst)
 	@for file in $$( ls $U/_* ); do \
 		cp $$file $(dst)/$${file#$U/_};\
 		cp $$file $(dst)/bin/$${file#$U/_}; done
+	@cp -R ./riscv64/* $(dst)
 	@umount $(dst)
 
 # Write mounted sdcard
