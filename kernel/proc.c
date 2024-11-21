@@ -381,6 +381,66 @@ fork(void)
   return pid;
 }
 
+int
+clone(void)
+{
+  int i, pid;
+  struct proc *np;
+  struct proc *p = myproc();
+
+  // Allocate process.
+  if((np = allocproc()) == NULL){
+    return -1;
+  }
+
+  // Copy user memory from parent to child.
+  if(uvmcopy(p->pagetable, np->pagetable, np->kpagetable, p->sz) < 0){
+    freeproc(np);
+    release(&np->lock);
+    return -1;
+  }
+  np->sz = p->sz;
+
+  np->parent = p;
+
+  // copy tracing mask from parent.
+  np->tmask = p->tmask;
+
+  // copy saved user registers.
+  *(np->trapframe) = *(p->trapframe);
+
+  // 以下步骤需要仔细观察汇编代码
+  uint64 stack = p->trapframe->a1;
+  if(stack!=0){
+    uint64 fn = *((uint64 *)((char *)(p->trapframe->a1)));
+    uint64 arg = *((uint64 *)((char *)(p->trapframe->a1) + 8));
+    // 修改栈指针
+    np->trapframe->sp = stack;
+    // 修改进程程序计数器
+    np->trapframe->epc = fn;
+    // 设置参数
+    np->trapframe->a1 = arg;
+  }
+  // Cause fork to return 0 in the child.
+  np->trapframe->a0 = 0;
+
+  // increment reference counts on open file descriptors.
+  for(i = 0; i < NOFILE; i++)
+    if(p->ofile[i])
+      np->ofile[i] = filedup(p->ofile[i]);
+  np->cwd = edup(p->cwd);
+
+  safestrcpy(np->name, p->name, sizeof(p->name));
+
+  pid = np->pid;
+
+  np->state = RUNNABLE;
+
+  release(&np->lock);
+
+  return pid;
+}
+
 // Pass p's abandoned children to init.
 // Caller must hold p->lock.
 void

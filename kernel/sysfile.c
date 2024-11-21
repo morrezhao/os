@@ -73,6 +73,31 @@ sys_dup(void)
 }
 
 uint64
+sys_dup3(void)
+{
+  struct file *f;
+  int old_fd, new_fd;
+
+  if (argfd(0, &old_fd, &f) < 0) // 获取第一个参数old_fd，并将其转换为文件结构指针f
+    return -1;
+  if (argint(1, &new_fd) < 0) // 获取第二个参数new_fd
+    return -1;
+
+
+  if (new_fd < 0 || new_fd > NOFILE)  // NOFILE在param.h中，需要改大一些
+    return -1;
+
+  if (myproc()->ofile[new_fd]) {
+    fileclose(myproc()->ofile[new_fd]);
+  }
+
+  myproc()->ofile[new_fd] = f;
+  filedup(f);
+
+  return new_fd;
+}
+
+uint64
 sys_read(void)
 {
   struct file *f;

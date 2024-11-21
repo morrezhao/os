@@ -70,6 +70,7 @@ void            reg_info(void);
 int             cpuid(void);
 void            exit(int);
 int             fork(void);
+int             clone(void);
 int             growproc(int);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint64);
