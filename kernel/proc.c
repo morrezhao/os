@@ -533,11 +533,61 @@ exit(int status)
 
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
+// int
+// wait(uint64 addr)
+// {
+//   struct proc *np;
+//   int havekids, pid;
+//   struct proc *p = myproc();
+
+//   // hold p->lock for the whole time to avoid lost
+//   // wakeups from a child's exit().
+//   acquire(&p->lock);
+
+//   for(;;){
+//     // Scan through table looking for exited children.
+//     havekids = 0;
+//     for(np = proc; np < &proc[NPROC]; np++){
+//       // this code uses np->parent without holding np->lock.
+//       // acquiring the lock first would cause a deadlock,
+//       // since np might be an ancestor, and we already hold p->lock.
+//       if(np->parent == p){
+//         // np->parent can't change between the check and the acquire()
+//         // because only the parent changes it, and we're the parent.
+//         acquire(&np->lock);
+//         havekids = 1;
+//         if(np->state == ZOMBIE){
+//           // Found one.
+//           pid = np->pid;
+//           if(addr != 0 && copyout2(addr, (char *)&np->xstate, sizeof(np->xstate)) < 0) {
+//             release(&np->lock);
+//             release(&p->lock);
+//             return -1;
+//           }
+//           freeproc(np);
+//           release(&np->lock);
+//           release(&p->lock);
+//           return pid;
+//         }
+//         release(&np->lock);
+//       }
+//     }
+
+//     // No point waiting if we don't have any children.
+//     if(!havekids || p->killed){
+//       release(&p->lock);
+//       return -1;
+//     }
+    
+//     // Wait for a child to exit.
+//     sleep(p, &p->lock);  //DOC: wait-sleep
+//   }
+// }
 int
-wait(uint64 addr)
+wait(int upid, uint64 addr, int options)
 {
   struct proc *np;
-  int havekids, pid;
+  int havekids, pid, status;
   struct proc *p = myproc();
 
   // hold p->lock for the whole time to avoid lost
@@ -556,10 +606,16 @@ wait(uint64 addr)
         // because only the parent changes it, and we're the parent.
         acquire(&np->lock);
         havekids = 1;
-        if(np->state == ZOMBIE){
+        // printf("pid: %d\n", np->pid);
+        // printf("wait for pid: %d\n", upid);
+        if(np->state == ZOMBIE && (np->pid == upid || upid == -1)){
           // Found one.
           pid = np->pid;
-          if(addr != 0 && copyout2(addr, (char *)&np->xstate, sizeof(np->xstate)) < 0) {
+          status = np->xstate << 8; // note
+
+          // printf("status: %d\n", np->xstate);
+          // printf("pid: %d\n", pid);
+          if(addr != 0 && copyout2(addr, (char *)&status, sizeof(status)) < 0) {
             release(&np->lock);
             release(&p->lock);
             return -1;
@@ -567,6 +623,7 @@ wait(uint64 addr)
           freeproc(np);
           release(&np->lock);
           release(&p->lock);
+          // printf("pid %d ended\n", pid);
           return pid;
         }
         release(&np->lock);

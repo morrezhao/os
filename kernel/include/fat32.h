@@ -23,6 +23,14 @@
 #define FAT32_MAX_PATH      260
 #define ENTRY_CACHE_NUM     50
 
+struct linux_dirent64 {
+    uint64        d_ino;
+    uint64         d_off;
+    unsigned short  d_reclen;
+    unsigned char   d_type;
+    char            d_name[];
+};
+
 struct dirent {
     char  filename[FAT32_MAX_FILENAME + 1];
     uint8   attribute;
