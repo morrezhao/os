@@ -87,7 +87,7 @@ sys_wait(void)
   if(argaddr(0, &p) < 0)
     return -1;
   
-  return wait(-1, p, 0);
+  return wait(-1, p);
 }
 
 uint64
@@ -98,7 +98,7 @@ sys_waitpid(void)
   if(argint(0, &pid) < 0 || argaddr(1, &p) < 0 || argint(2, &options)) 
     return -1;
   
-  return wait(pid, p, options);
+  return wait(pid, p);
 }
 
 uint64

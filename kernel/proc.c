@@ -584,7 +584,7 @@ exit(int status)
 //   }
 // }
 int
-wait(int upid, uint64 addr, int options)
+wait(int upid, uint64 addr)
 {
   struct proc *np;
   int havekids, pid, status;
@@ -609,12 +609,10 @@ wait(int upid, uint64 addr, int options)
         // printf("pid: %d\n", np->pid);
         // printf("wait for pid: %d\n", upid);
         if(np->state == ZOMBIE && (np->pid == upid || upid == -1)){
-          // Found one.
+          // Found the desired one or indicate find any one is ok.
           pid = np->pid;
           status = np->xstate << 8; // note
 
-          // printf("status: %d\n", np->xstate);
-          // printf("pid: %d\n", pid);
           if(addr != 0 && copyout2(addr, (char *)&status, sizeof(status)) < 0) {
             release(&np->lock);
             release(&p->lock);
