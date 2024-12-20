@@ -239,9 +239,15 @@ sys_mkdir(void)
   char path[FAT32_MAX_PATH];
   struct dirent *ep;
 
-  if(argstr(0, path, FAT32_MAX_PATH) < 0 || (ep = create(path, T_DIR, 0)) == 0){
+  int fd, omode;
+  if (argint(0, &fd) < 0 || argint(2, &omode) < 0) {
     return -1;
   }
+
+  if(argstr(1, path, FAT32_MAX_PATH) < 0 || (ep = create(path, T_DIR, omode)) == 0){
+    return -1;
+  }
+
   eunlock(ep);
   eput(ep);
   return 0;
@@ -577,6 +583,24 @@ fail:
   return -1;
 }
 
+static int
+get_next_valid_entry(struct file *f, struct dirent *de)
+{
+    int ret, count;
+
+    elock(f->ep);
+    while ((ret = enext(f->ep, de, f->off, &count)) == 0) {
+        f->off += count * 32;
+    }
+    eunlock(f->ep);
+
+    if (ret == -1) {
+        return 0;  // 到达目录末尾
+    }
+
+    f->off += count * 32;
+    return 1;  // 获取到有效目录项
+}
 
 uint64
 sys_getdents(void)
@@ -586,8 +610,6 @@ sys_getdents(void)
   struct file *f;
   int nread = 0;  
   struct dirent de;
-  int count = 0;
-  int ret;
   struct linux_dirent64 tmp;
 
   if(argint(0, &fd) < 0 || argint(2, &len) < 0 || argaddr(1, &addr) < 0){
@@ -599,15 +621,11 @@ sys_getdents(void)
     return -1;
 
   while(nread + (int)(sizeof(tmp)) <= len){
-    elock(f->ep);
-    while ((ret = enext(f->ep, &de, f->off, &count)) == 0) {  // skip empty entry
-      f->off += count * 32;
-    }
-    eunlock(f->ep);
-    if (ret == -1)  // meet the end of dir
-      return 0;
 
-    f->off += count * 32;
+    if (!get_next_valid_entry(f, &de)){  // try to read next
+      break;
+    }
+
     safestrcpy(tmp.d_name, de.filename, strlen(de.filename) + 1);
     
     if(copyout2(addr, (char *)&tmp, sizeof(tmp)) < 0)
@@ -619,16 +637,19 @@ sys_getdents(void)
   return nread;
 }
 
+// similar to sys_remove
 uint64
 sys_unlink(void)
 { 
 
   char path[FAT32_MAX_PATH];
   struct dirent *ep;
-  int fd, flags, len;
-  if(argint(0, &fd) < 0 || argint(2, &flags) < 0)
-    return -1;
+  int len;
   if((len = argstr(1, path, FAT32_MAX_PATH)) <= 0)
+    return -1;
+
+  int fd, flags;
+  if(argint(0, &fd) < 0 || argint(2, &flags) < 0)
     return -1;
   
   char *s = path + len - 1;
